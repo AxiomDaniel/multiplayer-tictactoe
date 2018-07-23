@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Tic-Tac-Toe</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <table style>
+        <tr>
+            <td><input type="button" id="button0" class="button" onclick="clickButton(0)" value=""></td>
+            <td><input type="button" id="button1" class="button" onclick="clickButton(1)" value=""></td>
+            <td><input type="button" id="button2" class="button" onclick="clickButton(2)" value=""></td>
+        </tr>
+        <tr>
+            <td><input type="button" id="button3" class="button" onclick="clickButton(3)" value=""></td>
+            <td><input type="button" id="button4" class="button" onclick="clickButton(4)" value=""></td>
+            <td><input type="button" id="button5" class="button" onclick="clickButton(5)" value=""></td>
+        </tr>
+        <tr>
+            <td><input type="button" id="button6" class="button" onclick="clickButton(6)" value=""></td>
+            <td><input type="button" id="button7" class="button" onclick="clickButton(7)" value=""></td>
+            <td><input type="button" id="button8" class="button" onclick="clickButton(8)" value=""></td>
+        </tr>
+    </table>
+
+    <button onclick="resetButton()">Reset Game</button>
+    <br />
+    <br />
+    <h3>Server Messages</h3>
+    <ul id="serverMessages"></ul>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        var isX; //Keep's track of client's position(X/O represented by true/false)
+        var id; //Each client has an 'almost' unique identifier
+        const socket = io();
+
+        function clickButton(num) {
+            socket.emit('clientClickButton', num, isX); //Posts to server which grid on game board has been clicked and the client's position.
+        }
+
+        function resetButton() { //Posts to server that the reset button has been clicked
+            socket.emit('clientResetButton');
+        }
+
+        socket.on('serverUpdateMove', function(board) { //Receives a command from server to update the game board's state.
+            for (var i = 0; i < 9; i++) {
+                var buttonId = "button" + i;
+                document.getElementById(buttonId).value = board[i];
+            };
+        });
+
+        socket.on('isXO', function(position) { //Received command from server create an ID for itself. Server also tells client's position
+            isX = position;
+            id = Math.floor(Date.now() * Math.random());
+            socket.emit('newPlayer', id, isX); //Sends the created information back to server
+            if (isX) {
+                alert("You're X");
+                $(document).ready(function() {
+                    $("ul").append("<li>You're X</li>");
+                });
+            } else {
+                alert("You're O");
+                $(document).ready(function() {
+                    $("ul").append("<li>You're O</li>");
+                });
+            }
+        });
+
+        socket.on('initializeNewPlayer', function(newPlayerID, positionToTakeOver) { //Initialize waiting player as current player.
+            if (id === newPlayerID.id) {
+                isX = positionToTakeOver;
+                socket.emit('newPlayer', id, isX); //Informs server of current player
+                var playerXO = isX ? 'X' : 'O';
+                alert("You're playing now! You are: " + playerXO);
+            }
+        });
+
+
+        socket.on('preWaitingList', function() { //Before server can append client to the waiting list, it needs an ID from the client
+            id = Math.floor(Date.now() * Math.random());
+            socket.emit('waitingList', id); //Sends ID back to server
+        });
+
+        socket.on("postWaitingList", function(queue) { //Server has logged client's id to waiting list. Informs client on current position
+            alert("You're on the waiting list. Your position in queue is: " + queue);
+            $(document).ready(function() {
+                $("ul").append("<li>You're on the waiting list.</li>");
+            });
+        });
+
+        socket.on('yourTurn', function() { //Command to inform of client's turn
+            if (isX === true || isX === false) { //Spectators do not get informed of turns
+                $(document).ready(function() {
+                    $("ul").append("<li>It's your turn now.</li>");
+                });
+            };
+        });
+
+        socket.on("notYourTurn", function() {
+            $(document).ready(function() {
+                $("ul").append("<li>It's not your turn!</li>");
+            });
+        });
+
+        socket.on("blockOccupied", function() {
+            $(document).ready(function() {
+                $("ul").append("<li>Select an empty square</li>");
+            });
+        });
+
+        socket.on('winner', function(winnerFound) {
+            alert(winnerFound);
+            $(document).ready(function() {
+                $("ul").append("<li>Game Over</li>");
+            });
+        });
+    </script>
+</body>
+
+</html>
